@@ -183,10 +183,20 @@ class Command:
 
 
 class Packet:
-    def __init__(self, service_id: int, command_id: int, command: Command):
+    def __init__(
+        self,
+        service_id: int = None,
+        command_id: int = None,
+        command: Command = None,
+        partial_packet: bytes = None,
+        sliced_packet: bytes = None
+    ):
         self.service_id = service_id
         self.command_id = command_id
         self.command = command
+        self.partial_packet = partial_packet
+        self.sliced_packet = sliced_packet
+        self.complete = False if partial_packet is not None or sliced_packet is not None else True
 
     def __repr__(self):
         return f"Packet(service_id={self.service_id}, command_id={self.command_id}, command={self.command})"
@@ -206,16 +216,34 @@ class Packet:
         return data + encode_int(binascii.crc_hqx(data, 0))
 
     @staticmethod
-    def from_bytes(data: bytes) -> "Packet":
+    def from_bytes(data: bytes, packet: "Packet") -> "Packet":
+
+        if packet is not None:
+            is_sliced = data[3]
+            if packet.partial_packet is not None:
+                data = packet.partial_packet + data
+            if packet.sliced_packet is not None:
+                data = packet.sliced_packet[:-2] + data[5:]
+                if is_sliced == 3:
+                    payload = data[5:-2]
+                    data = HUAWEI_LPV2_MAGIC + encode_int(len(payload) + 1) + b"\0" + payload
+                    data += encode_int(binascii.crc_hqx(data, 0))
 
         minimum_length = 1 + 2 + 1 + 2
         if len(data) < minimum_length:
             raise MismatchError("packet length", len(data), minimum_length)
 
-        magic, _, payload, expected_checksum = data[0], data[1:3], data[4:-2], data[-2:]
+        magic, expected_size, is_sliced, payload, expected_checksum = data[0], data[1:3], data[3], data[4:-2], data[-2:]
 
         if magic != ord(HUAWEI_LPV2_MAGIC):
             raise MismatchError("magic", magic, HUAWEI_LPV2_MAGIC)
+
+        expected_size = int.from_bytes(expected_size, 'big')
+        if expected_size != len(payload) + 1:
+            return Packet(partial_packet=data)
+
+        if is_sliced:
+            return Packet(sliced_packet=data)
 
         actual_checksum = encode_int(binascii.crc_hqx(data[:-2], 0))
 
