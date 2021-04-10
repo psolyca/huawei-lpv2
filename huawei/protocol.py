@@ -216,7 +216,7 @@ class Packet:
         return data + encode_int(binascii.crc_hqx(data, 0))
 
     @staticmethod
-    def from_bytes(data: bytes, packet: "Packet") -> "Packet":
+    def from_bytes(data: bytes, packet: Optional["Packet"]=None) -> "Packet":
 
         if packet is not None:
             is_sliced = data[3]
@@ -233,12 +233,11 @@ class Packet:
         if len(data) < minimum_length:
             raise MismatchError("packet length", len(data), minimum_length)
 
-        magic, expected_size, is_sliced, payload, expected_checksum = data[0], data[1:3], data[3], data[4:-2], data[-2:]
+        magic, expected_size, is_sliced, payload, expected_checksum = data[0], decode_int(data[1:3]), data[3], data[4:-2], data[-2:]
 
         if magic != ord(HUAWEI_LPV2_MAGIC):
             raise MismatchError("magic", magic, HUAWEI_LPV2_MAGIC)
 
-        expected_size = int.from_bytes(expected_size, 'big')
         if expected_size != len(payload) + 1:
             return Packet(partial_packet=data)
 
