@@ -116,6 +116,14 @@ class DeviceConfig:
             ClientMacAddress = 7
             EncryptionCounter = 9
 
+    class SupportedActivity:
+        id = 18
+
+        class Tags:
+            Activity = 2
+            SupportHeartRate = 3
+            SupportedActivity = 129
+
     class Auth:
         id = 19
 
