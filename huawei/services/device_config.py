@@ -47,6 +47,15 @@ class DeviceConfig:
             Services = 1
             ActiveServices = 2
 
+    class SupportedCommands:
+        id = 3
+
+        class Tags:
+            ServiceId = 2
+            Commands = 3
+            ActiveCommands = 4
+            SupportedCommands = 129
+
     class SetDateFormat:
         id = 4
 
