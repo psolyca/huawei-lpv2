@@ -70,7 +70,12 @@ class DeviceConfig:
             SerialNumber = 9
             ProductModel = 10
             eMMCId = 11
+            ProductName = 12
             HealthAppSupport = 13  # int
+            ForceSN = 14
+            CertificatModel = 17
+            HiLinkProductID = 21
+            ProductManufacture = 22
 
     class Bond:
         id = 14
