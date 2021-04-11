@@ -28,10 +28,13 @@ DIGEST_SECRET = "70 FB 6C 24 03 5F DB 55 2F 38 89 8A EE DE 3F 69"
 MESSAGE_RESPONSE = "0110"
 MESSAGE_CHALLENGE = "0100"
 
-SECRET_KEY_1 = "6F 75 6A 79 6D 77 71 34 63 6C 76 39 33 37 38 79"
-SECRET_KEY_2 = "62 31 30 6A 67 66 64 39 79 37 76 73 75 64 61 39"
+SECRET_KEY_1_v2 = "6F 75 6A 79 6D 77 71 34 63 6C 76 39 33 37 38 79"
+SECRET_KEY_2_v2 = "62 31 30 6A 67 66 64 39 79 37 76 73 75 64 61 39"
+SECRET_KEY_1_v3 = "35 35 20 35 33 20 38 36 20 46 43 20 36 33 20 32 30 20 30 37 20 41 41 20 38 36 20 34 39 20 33 35 20 32 32 20 42 38 20 36 41 20 45 32 20 35 43"
+SECRET_KEY_2_v3 = "33 33 20 30 37 20 39 42 20 43 35 20 37 41 20 38 38 20 36 44 20 33 43 20 46 35 20 36 31 20 33 37 20 30 39 20 36 46 20 32 32 20 38 30 20 30 30"
 
-AES_KEY_SIZE = 16
+AES_KEY_SIZE_v2 = 16
+AES_KEY_SIZE_v3 = 256
 NONCE_LENGTH = 16
 
 ENCRYPTION_COUNTER_MAX = 4294967295
@@ -107,6 +110,7 @@ class VarInt:
             if not current_byte & 0b10000000:
                 return VarInt(value)
             value <<= 7
+        return VarInt(0)
 
 
 class TLV:
@@ -285,6 +289,16 @@ def encrypt_packet(func):
 
     return wrapper
 
+def decrypt_packet(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not all(arg in kwargs for arg in ("key", "iv")):
+            raise TypeError("decrypt_packet expects 'key' and 'iv' arguments")
+        key, iv = kwargs.pop("key"), kwargs.pop("iv")
+        return func(*args, **kwargs).decrypt(key, iv)
+
+    return wrapper
+
 
 def process_result(command: Command) -> Optional[int]:
     if TAG_RESULT in command:
@@ -357,7 +371,7 @@ def generate_nonce() -> bytes:
 
 
 def encrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
-    padder = padding.PKCS7(8 * AES_KEY_SIZE).padder()
+    padder = padding.PKCS7(8 * AES_KEY_SIZE_v2).padder()
     padded_data = padder.update(data) + padder.finalize()
 
     backend = default_backend()
@@ -373,7 +387,7 @@ def decrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
     decryptor = cipher.decryptor()
     padded_data = decryptor.update(data) + decryptor.finalize()
 
-    unpadder = padding.PKCS7(8 * AES_KEY_SIZE).unpadder()
+    unpadder = padding.PKCS7(8 * AES_KEY_SIZE_v2).unpadder()
     return unpadder.update(padded_data) + unpadder.finalize()
 
 
@@ -383,8 +397,8 @@ def create_secret_key(mac_address: str) -> bytes:
     mixed_secret_key = [
         ((key1_byte << 4) ^ key2_byte) & 0xFF
         for key1_byte, key2_byte in zip(
-            bytes.fromhex(SECRET_KEY_1),
-            bytes.fromhex(SECRET_KEY_2),
+            bytes.fromhex(SECRET_KEY_1_v2),
+            bytes.fromhex(SECRET_KEY_2_v2)
         )
     ]
 
@@ -398,8 +412,11 @@ def create_secret_key(mac_address: str) -> bytes:
         )
     ]
 
-    return hashlib.sha256(bytes(final_mixed_key)).digest()[:AES_KEY_SIZE]
+    return hashlib.sha256(bytes(final_mixed_key)).digest()[:AES_KEY_SIZE_v2]
 
 
 def create_bonding_key(mac_address: str, key: bytes, iv: bytes) -> bytes:
     return encrypt(key, create_secret_key(mac_address), iv)
+
+def decrypt_bonding_key(mac_address: str, bonding_key: bytes, iv: bytes) -> bytes:
+    return decrypt(bonding_key, create_secret_key(mac_address), iv)

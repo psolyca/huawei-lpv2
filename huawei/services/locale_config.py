@@ -1,5 +1,7 @@
 from ..protocol import Command, Packet, TLV, encode_int, encrypt_packet
 
+# from .helper import add_process_method
+
 
 class LocaleConfig:
     id = 12

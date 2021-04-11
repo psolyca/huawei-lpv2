@@ -1,7 +1,9 @@
 import enum
-from typing import TypeVar
+from typing import TypeVar, List
 
 from ..protocol import Command, Packet, TLV, encode_int, encrypt_packet
+
+# from .helper import add_process_method
 
 
 class Notification:
@@ -31,6 +33,19 @@ class Notification:
 
             TextList = 140
             TextItem = 141
+
+    class Type:
+        id = 5
+
+        class Tags:
+            PromptPush = 1
+    
+    class WearMessagePushSwitchStatus:
+        id = 8
+
+        class Tags:
+            U1 = 1
+            U2 = 127
 
 
 class NotificationType(enum.Enum):
@@ -72,7 +87,7 @@ TEXT_ENCODING = 2  # yet unclear what scheme identified as "1" is for
 T = TypeVar("T")
 
 
-def optional_list(item: T, condition: bool) -> list[T]:
+def optional_list(item: T, condition: bool) -> List[T]:
     return [item] if condition else []
 
 

@@ -26,6 +26,20 @@ from ..protocol import (
 logger = getLogger(__name__)
 
 
+class Services(enum.Enum):
+    DeviceConfig = 1
+    Notification = 2
+    Fitness = 7
+    LocaleConfig = 12
+
+class Activities(enum.Enum):
+    Walk = 4
+    Run = 7
+    Climb = 8
+    Ride = 9
+    Sleep = 10
+    HeartRate = 11
+
 class DeviceConfig:
     id = 1
 
@@ -103,6 +117,7 @@ class DeviceConfig:
             ClientSerial = 5
             BondingKey = 6
             InitVector = 7
+            DoNotKnow = 9
 
     class BondParams:
         id = 15
@@ -160,6 +175,12 @@ class DeviceConfig:
 
         class Tags:
             SetStatus = 1
+
+    class RequestDNDStatus:
+        id = 29
+
+        class Tags:
+            DoNotKnow = 1
 
 
 def request_link_params() -> Packet:

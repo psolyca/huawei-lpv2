@@ -3,7 +3,16 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Callable, List, Optional
 
-from ..protocol import Command, Packet, TLV, check_result, decode_int, encode_int, encrypt_packet, set_status
+from ..protocol import (
+    Command,
+    Packet,
+    TLV,
+    check_result,
+    decode_int,
+    encode_int,
+    encrypt_packet,
+    set_status,
+)
 
 
 class Fitness:
@@ -36,6 +45,13 @@ class Fitness:
             Height = 10
             Response = 129
             Activity = 131
+
+    class U:
+        id = 21
+
+        class Tags:
+            Request = 1
+            Response = 127
 
     class TruSleepState:
         id = 22
