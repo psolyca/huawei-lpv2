@@ -40,6 +40,13 @@ class DeviceConfig:
             ServerNonce = 5
             PathExtendNumber = 6  # apparently used for BTVersion == 0
 
+    class SupportedServices:
+        id = 2
+
+        class Tags:
+            Services = 1
+            ActiveServices = 2
+
     class SetDateFormat:
         id = 4
 
