@@ -214,6 +214,7 @@ def process_authentication(command: Command, client_nonce: bytes, server_nonce: 
 
     logger.info("Process authentication: \n\tCheck")
 
+
 def request_bond_params(client_serial: str, client_mac: str) -> Packet:
     return Packet(
         service_id=DeviceConfig.id,
