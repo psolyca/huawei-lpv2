@@ -178,12 +178,13 @@ class TestCommand(unittest.TestCase):
 
 class TestPacket(unittest.TestCase):
     DATA = "5A 00 08 00 01 02 03 03 61 62 63 E1 D3"
+    DATA_CHECKSUM = "5A 00 08 00 01 02 03 03 61 62 63 E1 E3"
     PACKET = Packet(service_id=1, command_id=2, command=Command(tlvs=[TLV(tag=3, value=b"abc")]))
 
     def test_deserialization(self):
         self.assertRaisesRegex(MismatchError, r"packet length mismatch", Packet.from_bytes, b"")
         self.assertRaisesRegex(MismatchError, r"magic mismatch", Packet.from_bytes, b"123456")
-        self.assertRaisesRegex(MismatchError, r"checksum mismatch", Packet.from_bytes, HUAWEI_LPV2_MAGIC + b"123456")
+        self.assertRaisesRegex(MismatchError, r"checksum mismatch", Packet.from_bytes, bytes.fromhex(self.DATA_CHECKSUM))
 
         self.assertEqual(self.PACKET, Packet.from_bytes(bytes.fromhex(self.DATA)))
 
