@@ -5,7 +5,6 @@ from .protocol import (
     AES_KEY_SIZE,
     Command,
     ENCRYPTION_COUNTER_MAX,
-    HUAWEI_LPV2_MAGIC,
     MismatchError,
     NONCE_LENGTH,
     Packet,
@@ -184,7 +183,12 @@ class TestPacket(unittest.TestCase):
     def test_deserialization(self):
         self.assertRaisesRegex(MismatchError, r"packet length mismatch", Packet.from_bytes, b"")
         self.assertRaisesRegex(MismatchError, r"magic mismatch", Packet.from_bytes, b"123456")
-        self.assertRaisesRegex(MismatchError, r"checksum mismatch", Packet.from_bytes, bytes.fromhex(self.DATA_CHECKSUM))
+        self.assertRaisesRegex(
+            MismatchError,
+            r"checksum mismatch",
+            Packet.from_bytes,
+            bytes.fromhex(self.DATA_CHECKSUM),
+        )
 
         self.assertEqual(self.PACKET, Packet.from_bytes(bytes.fromhex(self.DATA)))
 
