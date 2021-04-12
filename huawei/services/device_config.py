@@ -40,6 +40,22 @@ class DeviceConfig:
             ServerNonce = 5
             PathExtendNumber = 6  # apparently used for BTVersion == 0
 
+    class SupportedServices:
+        id = 2
+
+        class Tags:
+            Services = 1
+            ActiveServices = 2
+
+    class SupportedCommands:
+        id = 3
+
+        class Tags:
+            ServiceId = 2
+            Commands = 3
+            ActiveCommands = 4
+            SupportedCommands = 129
+
     class SetDateFormat:
         id = 4
 
@@ -70,7 +86,12 @@ class DeviceConfig:
             SerialNumber = 9
             ProductModel = 10
             eMMCId = 11
+            ProductName = 12
             HealthAppSupport = 13  # int
+            ForceSN = 14
+            CertificatModel = 17
+            HiLinkProductID = 21
+            ProductManufacture = 22
 
     class Bond:
         id = 14
@@ -94,6 +115,14 @@ class DeviceConfig:
             MaxFrameSize = 5
             ClientMacAddress = 7
             EncryptionCounter = 9
+
+    class SupportedActivity:
+        id = 18
+
+        class Tags:
+            Activity = 2
+            SupportHeartRate = 3
+            SupportedActivity = 129
 
     class Auth:
         id = 19
@@ -179,11 +208,13 @@ def process_link_params(command: Command) -> Tuple[LinkParams, bytes]:
         raise MismatchError("server nonce length", len(server_nonce), NONCE_LENGTH)
 
     logger.info(
-        f"Negotiated link parameters: "
-        f"{link_params.max_frame_size}, "
-        f"{link_params.max_link_size}, "
-        f"{link_params.connection_interval}, "
-        f"{hexlify(server_nonce)}",
+        "Negotiated link parameters:\n"
+        f"\tProtocol version: {protocol_version}\n"
+        f"\tMax frame size: {link_params.max_frame_size}\n"
+        f"\tMax link size: {link_params.max_link_size}\n"
+        f"\tConnection interval: {link_params.connection_interval}\n"
+        f"\tAuth version : {auth_version}"
+        f"\tServer nonce: {hexlify(server_nonce)}",
     )
 
     return link_params, server_nonce
@@ -209,6 +240,8 @@ def process_authentication(command: Command, client_nonce: bytes, server_nonce: 
 
     if expected_answer != actual_answer:
         raise MismatchError("challenge answer", actual_answer, expected_answer)
+
+    logger.info("Process authentication: \n\tCheck")
 
 
 def request_bond_params(client_serial: str, client_mac: str) -> Packet:
@@ -239,12 +272,12 @@ def process_bond_params(command: Command) -> Tuple[int, int]:
     # TODO: check bond status
 
     logger.info(
-        f"Negotiated bond params: "
-        f"{bond_status}, "
-        f"{bond_status_info}, "
-        f"{bt_version}, "
-        f"{max_frame_size}, "
-        f"{encryption_counter}",
+        f"Negotiated bond params:\n"
+        f"\tBond status: {bond_status}\n"
+        f"\tBond status info: {bond_status_info}\n"
+        f"\tBT version: {bt_version}\n"
+        f"\tMax frame size: {max_frame_size}\n"
+        f"\tEncryption counter: {encryption_counter}",
     )
 
     return max_frame_size, encryption_counter
