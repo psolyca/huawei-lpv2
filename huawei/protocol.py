@@ -136,7 +136,9 @@ class TLV:
         tag, body = data[0], data[1:]
 
         value_length = VarInt.from_bytes(body)
-        value_begin, value_end = len(value_length), len(value_length) + int(value_length)
+        value_begin, value_end = len(value_length), len(value_length) + int(
+            value_length,
+        )
 
         return TLV(tag=tag, value=body[value_begin:value_end])
 
@@ -183,16 +185,30 @@ class Command:
 
 
 class Packet:
-    def __init__(self, service_id: int, command_id: int, command: Command):
+    def __init__(
+        self,
+        service_id: int = None,
+        command_id: int = None,
+        command: Command = None,
+        partial_packet: bytes = None,
+        sliced_packet: bytes = None,
+    ):
         self.service_id = service_id
         self.command_id = command_id
         self.command = command
+        self.partial_packet = partial_packet
+        self.sliced_packet = sliced_packet
+        self.complete = False if partial_packet is not None or sliced_packet is not None else True
 
     def __repr__(self):
         return f"Packet(service_id={self.service_id}, command_id={self.command_id}, command={self.command})"
 
     def __eq__(self, other: "Packet"):
-        return (self.service_id, self.command_id, self.command) == (other.service_id, other.command_id, other.command)
+        return (self.service_id, self.command_id, self.command) == (
+            other.service_id,
+            other.command_id,
+            other.command,
+        )
 
     def __bytes__(self) -> bytes:
         payload = bytes([self.service_id, self.command_id]) + bytes(self.command)
@@ -200,35 +216,63 @@ class Packet:
         maximum_payload_length = 2 ** (8 * 2)
         if len(payload) > maximum_payload_length:
             raise MismatchError("payload length", len(payload), maximum_payload_length)
-
         data = HUAWEI_LPV2_MAGIC + encode_int(len(payload) + 1) + b"\0" + payload
 
         return data + encode_int(binascii.crc_hqx(data, 0))
 
     @staticmethod
-    def from_bytes(data: bytes) -> "Packet":
+    def from_bytes(data: bytes, packet: Optional["Packet"] = None) -> "Packet":
 
+        if packet is not None:
+            is_sliced = data[3]
+            if packet.partial_packet is not None:
+                data = packet.partial_packet + data
+            if packet.sliced_packet is not None:
+                data = packet.sliced_packet[:-2] + data[5:]
+                if is_sliced == 3:
+                    payload = data[5:-2]
+                    data = HUAWEI_LPV2_MAGIC + encode_int(len(payload) + 1) + b"\0" + payload
+                    data += encode_int(binascii.crc_hqx(data, 0))
         minimum_length = 1 + 2 + 1 + 2
         if len(data) < minimum_length:
             raise MismatchError("packet length", len(data), minimum_length)
-
-        magic, _, payload, expected_checksum = data[0], data[1:3], data[4:-2], data[-2:]
+        magic, expected_size, is_sliced, payload, expected_checksum = (
+            data[0],
+            decode_int(data[1:3]),
+            data[3],
+            data[4:-2],
+            data[-2:],
+        )
 
         if magic != ord(HUAWEI_LPV2_MAGIC):
             raise MismatchError("magic", magic, HUAWEI_LPV2_MAGIC)
-
+        if expected_size != len(payload) + 1:
+            return Packet(partial_packet=data)
+        if is_sliced:
+            return Packet(sliced_packet=data)
         actual_checksum = encode_int(binascii.crc_hqx(data[:-2], 0))
 
         if actual_checksum != expected_checksum:
             raise MismatchError("checksum", actual_checksum, expected_checksum)
-
-        return Packet(service_id=payload[0], command_id=payload[1], command=Command.from_bytes(payload[2:]))
+        return Packet(
+            service_id=payload[0],
+            command_id=payload[1],
+            command=Command.from_bytes(payload[2:]),
+        )
 
     def encrypt(self, key: bytes, iv: bytes) -> "Packet":
-        return Packet(service_id=self.service_id, command_id=self.command_id, command=self.command.encrypt(key, iv))
+        return Packet(
+            service_id=self.service_id,
+            command_id=self.command_id,
+            command=self.command.encrypt(key, iv),
+        )
 
     def decrypt(self, key: bytes, iv: bytes) -> "Packet":
-        return Packet(service_id=self.service_id, command_id=self.command_id, command=self.command.decrypt(key, iv))
+        return Packet(
+            service_id=self.service_id,
+            command_id=self.command_id,
+            command=self.command.decrypt(key, iv),
+        )
 
 
 def encrypt_packet(func):
@@ -294,7 +338,10 @@ def compute_digest(message: str, client_nonce: bytes, server_nonce: bytes):
     def digest(key: bytes, msg: bytes):
         return hmac.new(key, msg=msg, digestmod=hashlib.sha256).digest()
 
-    return digest(digest(bytes.fromhex(DIGEST_SECRET + message), complete_nonce), complete_nonce)
+    return digest(
+        digest(bytes.fromhex(DIGEST_SECRET + message), complete_nonce),
+        complete_nonce,
+    )
 
 
 def digest_challenge(client_nonce: bytes, server_nonce: bytes):
@@ -335,14 +382,20 @@ def create_secret_key(mac_address: str) -> bytes:
 
     mixed_secret_key = [
         ((key1_byte << 4) ^ key2_byte) & 0xFF
-        for key1_byte, key2_byte in zip(bytes.fromhex(SECRET_KEY_1), bytes.fromhex(SECRET_KEY_2))
+        for key1_byte, key2_byte in zip(
+            bytes.fromhex(SECRET_KEY_1),
+            bytes.fromhex(SECRET_KEY_2),
+        )
     ]
 
     mixed_secret_key_hash = hashlib.sha256(bytes(mixed_secret_key)).digest()
 
     final_mixed_key = [
         ((mixed_key_hash_byte >> 6) ^ mac_address_byte) & 0xFF
-        for mixed_key_hash_byte, mac_address_byte in zip(mixed_secret_key_hash, mac_address_key)
+        for mixed_key_hash_byte, mac_address_byte in zip(
+            mixed_secret_key_hash,
+            mac_address_key,
+        )
     ]
 
     return hashlib.sha256(bytes(final_mixed_key)).digest()[:AES_KEY_SIZE]

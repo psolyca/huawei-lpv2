@@ -102,7 +102,7 @@ class Band:
 
     def _receive_data(self, sender: int, data: bytes):
         logger.debug(f"Current state: {self.state}, received from '{sender}': {hexlify(bytes(data))}")
-        self._packet = Packet.from_bytes(data)
+        self._packet = Packet.from_bytes(data, self._packet)
         logger.debug(f"Parsed response packet: {self._packet}")
 
         assert self.state.name.startswith("Requested"), "unexpected packet"
